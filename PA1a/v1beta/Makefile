@@ -1,4 +1,4 @@
-CC=gcc
+CC=gcc -O3
 
 all: main.out
 

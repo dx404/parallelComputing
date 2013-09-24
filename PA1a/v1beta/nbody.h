@@ -1,10 +1,9 @@
 #ifndef NBODY_H
 #define NBODY_H
 
-#define N 5000
-#define G 0.001
+#define N 2
+#define G 1
 #define dt 0.001
-#define t_end 0.004
 
 typedef struct{
 	double x, y;
@@ -14,13 +13,16 @@ typedef struct{
 	double mass;
 	Vec2 position;
 	Vec2 velocity;
+	Vec2 acceleration;
 } Body;
 
-void cal_force(Vec2 *f, Body *target, Body *source);
+double distance(Vec2 *t, Vec2 *s);
 
-void nextPhase(Body bodies[N], double t_step, int steps);
+Vec2 cal_force(Body *target, Body *source);
 
-void nextPhaseHalf (Body bodies[N], double t_step, int steps);
+void nextPhase(Body bodies[N], double t_step, int steps, Vec2 forceSratch[N][N]);
+
+void nextPhaseHalf (Body bodies[N], double t_step, int steps, Vec2 forceSratch[N][N]);
 
 void randInit(Body bodies[], int start, int end);
 

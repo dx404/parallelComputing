@@ -7,88 +7,99 @@
 
 #include <math.h>
 #include <stdlib.h> //for rand()
+#include <stdint.h>
 #include <time.h>
 #include "nbody.h"
 
-double distance(Vec2 *t, Vec2 *s) {
-	double dx = t->x - s->x;
-	double dy = t->y - s->y;
-	return sqrt(dx*dx + dy*dy);
+double fastInvSqrtCube(double number) {
+	uint64_t i;
+	double x2, y;
+	x2 = number * 0.5;
+	y = number;
+	i = *(uint64_t *) &y;
+	i = 0x5fe6eb50c7b537a9 - (i >> 1);
+	y = *(double *) &i;
+	y = y * (1.5 - (x2 * y * y));
+	return y / number;
 }
 
-Vec2 cal_force(Body *target, Body *source){
-	Vec2 f;
-	double d = distance(&source->position, &target->position);
-	double K = G * target->mass * source->mass
-				/ (d * d * d);
-	f.x = K * (source->position.x - target->position.x);
-	f.y = K * (source->position.y - target->position.y);
-	return f;
+void cal_force(Vec2 *f, Body *target, Body *source){
+	Vec2 *tp = &target->position;
+	Vec2 *sp = &source->position;
+
+	double dx = tp->x - sp->x;
+	double dy = tp->y - sp->y;
+	double d2 = dx*dx + dy*dy;
+	double dinvSqurtCube = fastInvSqrtCube(d2);
+//	double d3 = d2 * sqrt(d2);
+
+	double fac = -G * target->mass * source->mass;
+	double K = fac * dinvSqurtCube;
+//	double K = -G * target->mass * source->mass / d3;
+	f->x = K * dx;
+	f->y = K * dy;
 }
 
-
-void nextPhase(Body bodies[N], double t_step, int steps, Vec2 forceSratch[N][N]){
+void nextPhase(Body bodies[N], double t_step, int steps){
 	int t, i, j;
-	for (t = 0; t < steps; t++){
-		for (i = 0; i < N; i++)
-			for (j = 0; j < N; j++)
-				if (i != j)
-					forceSratch[i][j] = cal_force(&bodies[i], &bodies[j]);
-
-		Vec2 force;
-		for (i = 0; i < N; i++){
-			force.x = 0;
-			force.y = 0;
-			for (j = 0; j < N; j++)
-				if (i != j){
-					force.x += forceSratch[i][j].x;
-					force.y += forceSratch[i][j].y;
-				}
-			bodies[i].acceleration.x = force.x / bodies[i].mass;
-			bodies[i].acceleration.y = force.y / bodies[i].mass;
-
-			bodies[i].position.x += t_step * bodies[i].velocity.x;
-			bodies[i].position.y += t_step * bodies[i].velocity.y;
-
-			bodies[i].velocity.x += t_step * bodies[i].acceleration.x;
-			bodies[i].velocity.y += t_step * bodies[i].acceleration.y;
-		}
-	}
-
-}
-
-void nextPhaseHalf (Body bodies[N], double t_step, int steps, Vec2 forceSratch[N][N]){
-	int t, i, j;
+	double fx, fy, ax, ay;
 	Vec2 force;
 	for (t = 0; t < steps; t++){
-		for (i = 0; i < N; i++)
-			for (j = 0; j < i; j++)
-				forceSratch[i][j] = cal_force(&bodies[i], &bodies[j]);
+		for (i = 0; i < N; i++){
+			fx = 0;
+			fy = 0;
+			for (j = 0; j < N; j++)
+				if (i != j){
+					cal_force(&force, &bodies[i], &bodies[j]);
+					fx += force.x;
+					fy += force.y;
+				}
+			ax = fx / bodies[i].mass;
+			ay = fy / bodies[i].mass;
+			bodies[i].velocity.x += t_step * ax;
+			bodies[i].velocity.y += t_step * ay;
+		}
 
 		for (i = 0; i < N; i++){
-			force.x = 0;
-			force.y = 0;
-			for (j = 0; j < i; j++){
-				force.x += forceSratch[i][j].x;
-				force.y += forceSratch[i][j].y;
-			}
-			for (j = i+1; j < N; j++){
-				force.x -= forceSratch[j][i].x;
-				force.y -= forceSratch[j][i].y;
-			}
-
-			bodies[i].acceleration.x = force.x / bodies[i].mass;
-			bodies[i].acceleration.y = force.y / bodies[i].mass;
-
 			bodies[i].position.x += t_step * bodies[i].velocity.x;
 			bodies[i].position.y += t_step * bodies[i].velocity.y;
-
-			bodies[i].velocity.x += t_step * bodies[i].acceleration.x;
-			bodies[i].velocity.y += t_step * bodies[i].acceleration.y;
 		}
 	}
 
 }
+
+//void nextPhaseHalf (Body bodies[N], double t_step, int steps, Vec2 forceSratch[N][N]){
+//	int t, i, j;
+//	Vec2 force;
+//	for (t = 0; t < steps; t++){
+//		for (i = 0; i < N; i++)
+//			for (j = 0; j < i; j++)
+//				forceSratch[i][j] = cal_force(&bodies[i], &bodies[j]);
+//
+//		for (i = 0; i < N; i++){
+//			force.x = 0;
+//			force.y = 0;
+//			for (j = 0; j < i; j++){
+//				force.x += forceSratch[i][j].x;
+//				force.y += forceSratch[i][j].y;
+//			}
+//			for (j = i+1; j < N; j++){
+//				force.x -= forceSratch[j][i].x;
+//				force.y -= forceSratch[j][i].y;
+//			}
+//
+//			bodies[i].acceleration.x = force.x / bodies[i].mass;
+//			bodies[i].acceleration.y = force.y / bodies[i].mass;
+//
+//			bodies[i].position.x += t_step * bodies[i].velocity.x;
+//			bodies[i].position.y += t_step * bodies[i].velocity.y;
+//
+//			bodies[i].velocity.x += t_step * bodies[i].acceleration.x;
+//			bodies[i].velocity.y += t_step * bodies[i].acceleration.y;
+//		}
+//	}
+//
+//}
 
 void randTest(Body bodies[], int start, int end){
 	int i;
@@ -122,8 +133,6 @@ void bodyCopy(Body target[], Body source[], int start, int end){
 		target[i].position.y = source[i].position.y;
 		target[i].velocity.x = source[i].velocity.x;
 		target[i].velocity.y = source[i].velocity.y;
-		target[i].acceleration.x = source[i].acceleration.x;
-		target[i].acceleration.y = source[i].acceleration.y;
 	}
 }
 
