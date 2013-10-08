@@ -220,7 +220,7 @@ void nextPhase_half_para(struct NBody *nBody, int num, int steps, double *clock_
 			double iax = 0;
 			double iay = 0;
 
-			#pragma omp parallel for num_threads(8)
+			#pragma omp parallel for firstprivate(i) num_threads(8)
 			for (int j = i + 1; j < num; j++){
 				double jm = nBody->m[j];
 				double dx = nBody->p[j].x - ipx;
@@ -257,10 +257,9 @@ void nextPhase_half_para(struct NBody *nBody, int num, int steps, double *clock_
 void nextPhase_half_para_003(struct NBody *nBody, int num, int steps, double *clock_record){
 	struct Vec2 *a = calloc (num, sizeof(struct Vec2));
 	wctime(clock_record++);
-	omp_set_nested(1);
-	for (int t = 0; t < steps; t++){
 
-		#pragma omp parallel for schedule(static, 256) num_threads(16)
+	for (int t = 0; t < steps; t++){
+		#pragma omp parallel for schedule(dynamic) num_threads(5)
 		for (int i = 0; i < num; i++){
 			double im  = nBody->m[i];
 			double ipx = nBody->p[i].x;
@@ -268,7 +267,7 @@ void nextPhase_half_para_003(struct NBody *nBody, int num, int steps, double *cl
 			double iax = 0;
 			double iay = 0;
 
-//			#pragma omp parallel for schedule(static, 2) reduction(+:iax, iay) num_threads(2)
+//			#pragma omp parallel for reduction(+:iax, iay) num_threads(16)
 			for (int j = i + 1; j < num; j++){
 				double jm = nBody->m[j];
 				double dx = nBody->p[j].x - ipx;
@@ -285,10 +284,6 @@ void nextPhase_half_para_003(struct NBody *nBody, int num, int steps, double *cl
 				a[j].x -= imd3inv * dx;
 			#pragma omp atomic
 				a[j].y -= imd3inv * dy;
-
-
-//				ax[j] -= imd3inv * dx;
-//				ay[j] -= imd3inv * dy;
 
 			}
 			#pragma omp atomic
@@ -313,7 +308,7 @@ void nextPhase_half_para_003(struct NBody *nBody, int num, int steps, double *cl
 void nextPhase_half_para_002(struct NBody *nBody, int num, int steps, double *clock_record){
 	struct Vec2 **a = (struct Vec2 **) malloc (num * sizeof(struct Vec2 *));
 	for (int i = 0; i < num; i++){
-		a[i] = (struct Vec2 *) malloc (num * sizeof(struct Vec2 ));
+		a[i] = (struct Vec2 *) malloc (num * sizeof(struct Vec2));
 	}
 
 	struct Vec2 *ai = (struct Vec2 *) malloc (num * sizeof(struct Vec2));
