@@ -55,6 +55,8 @@ double fastInvSqrt(double number) {
 	i = 0x5fe6eb50c7b537a9 - (i >> 1);
 	y = *(double *) &i;
 	y = y * (1.5 - (x2 * y * y));
+	y = y * (1.5 - (x2 * y * y));
+	y = y * (1.5 - (x2 * y * y));
 	return y;
 }
 double fastInvSqrtCube(double number) {
@@ -64,10 +66,12 @@ double fastInvSqrtCube(double number) {
 	i = 0x5fe6eb50c7b537a9 - (i >> 1);
 	y = *(double *) &i;
 	y = y * (1.5 - (x2 * y * y));
+	y = y * (1.5 - (x2 * y * y));
+	y = y * (1.5 - (x2 * y * y));
 	return y;
 }
 
-void quickNormalize(double *dx, double *dy){
+void overNormalize(double *dx, double *dy){
 	double d2  = *dx * *dx + *dy * *dy;
 	double y = d2;
 	uint64_t i = 0x5fe6eb50c7b537a9 - ((*(uint64_t *) &d2) >> 1);
@@ -85,6 +89,7 @@ void reNormalize(double *dx, double *dy){
 	double d3 = d2 * sqrt(d2);
 	*dx /=  d3;
 	*dy /=  d3;
+
 }
 
 void randTest(struct Body *bodies, int start, int end){
@@ -100,25 +105,11 @@ void randTest(struct Body *bodies, int start, int end){
 	}
 }
 
-void randInit(struct Body *body, int start, int end){
-	srand (time(NULL));
-	struct Body *i;
-	for (i = body + start; i < body + end; i++){
-		i->Gmass = (float)rand()/(float)RAND_MAX;
-		i->px = (float)rand()/(float)RAND_MAX;
-		i->py = (float)rand()/(float)RAND_MAX;
-		i->vx = 1.5 * (float)rand()/(float)RAND_MAX;
-		i->vy = 1.5 * (float)rand()/(float)RAND_MAX;
-	}
-}
-
 void bodiesPrint(struct Body *bodies, int start, int end){
 	int i;
 	printf("{");
 	for (i = start; i < end; i++){
-		printf("p={%f, %f}\n", bodies[i].px, bodies[i].py);
-		printf("v={%f, %f}\n", bodies[i].vx, bodies[i].vy);
-		printf("a={%f, %f}\n", bodies[i].ax, bodies[i].ay);
+		printf("{%f, %f}", bodies[i].px, bodies[i].py);
 		if (i == end - 1)
 			break;
 		else
@@ -133,8 +124,7 @@ void nextPhase(struct Body *body, int num, int steps, double *clock_record){
 	int t;
 	struct Body *i, *j;
 
-	double ax, ay;
-	double dx, dy;
+	double dx, dy, rdx, rdy, d, d2, d3, ax, ay, ipx, ipy, iGmass, d3inv;
 	for (t = 0; t < steps; t++){
 		for (i = body; i != body + num; i++){
 			ax = i->ax;
@@ -142,8 +132,8 @@ void nextPhase(struct Body *body, int num, int steps, double *clock_record){
 			for (j = i + 1; j != body + num; j++){
 				dx = i->px - j->px;
 				dy = i->py - j->py;
-				quickNormalize(&dx, &dy);
-//				reNormalize(&dx, &dy);
+//				overNormalize(&dx, &dy);
+				reNormalize(&dx, &dy);
 
 				ax -= j->Gmass * dx;
 				ay -= j->Gmass * dy;
@@ -157,9 +147,6 @@ void nextPhase(struct Body *body, int num, int steps, double *clock_record){
 
 			i->vx += dt * ax;
 			i->vy += dt * ay;
-
-			i->ax = 0;
-			i->ay = 0;
 		}
 		wctime(clock_record++);
 	}
@@ -176,9 +163,7 @@ int main(int argc, char *argv[]){
 
 	struct Body *body = (struct Body *) malloc (sizeof(struct Body ) * N);
 	double t[K+1];
-//	randTest (body, 0, N);
-	randInit (body, 0, N);
-
+	randTest (body, 0, N);
 	struct BodyState bs0, bsK;
 
 	bs0 = getState(body, N);
@@ -186,19 +171,17 @@ int main(int argc, char *argv[]){
 	bsK = getState(body, N);
 
 	te = t[K] - t[0];
-//	printf("t0: %f\n", t[0]);
-//	printf("tK: %f\n", t[K]);
-//	printf("te: %f\n", te);
-//	printf("te/K: %f\n", te/K);
-//	printf("elapse - k n^2/t_e: %f\n", (K) * (N*N)/te*(1e-6));
-
-//	printf("3.0, %d, %d, %f, %f\n", K, N, te, (K)*(N * N)/te * (1e-6));
-
-//	bodiesPrint(body, 0, N);
+	printf("t0: %f\n", t[0]);
+	printf("tK: %f\n", t[K]);
+	printf("te: %f\n", te);
+	printf("te/K: %f\n", te/K);
+	printf("elapse - k n^2/t_e: %f\n", (K) * (N*N)/te	*(1e-6));
+	printf("-----%f\n", fastInvSqrt(3.1415926));
+	printf("-----%f\n", 1/sqrt(3.1415926));
+	bodiesPrint(body, N-1, N);
 	statePrint(&bs0);
 	statePrint(&bsK);
 
-//	bodiesPrint(body, 0, N);
 	free(body);
 	return 0;
 }

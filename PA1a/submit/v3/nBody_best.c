@@ -5,7 +5,6 @@
 #include <time.h>
 #include <math.h>
 
-#define K 4
 #define G 1
 #define dt 0.001
 
@@ -73,8 +72,8 @@ void quickNormalize(double *dx, double *dy){
 	uint64_t i = 0x5fe6eb50c7b537a9 - ((*(uint64_t *) &d2) >> 1);
 	y = *(double *) &i;
 	y *=   (1.5 - (0.5 * d2 * y * y)) ;
-//	y *=   (1.5 - (0.5 * d2 * y * y)) ;
-//	y *=   (1.5 - (0.5 * d2 * y * y)) ;
+	y *=   (1.5 - (0.5 * d2 * y * y)) ;
+	y *=   (1.5 - (0.5 * d2 * y * y)) ;
 	y *= y*y;
 	*dx *=  y;
 	*dy *=  y;
@@ -99,6 +98,46 @@ void randTest(struct Body *bodies, int start, int end){
 		bodies[i].ay = 0;
 	}
 }
+
+void initCheck(struct Body *body){
+	struct Body *i = body;
+	i->Gmass=1.0;
+	i->px=0.0;
+	i->py=0.0;
+	i->vx=0.0;
+	i->vy=0.0;
+	i->ax=0.0;
+	i->ay=0.0;
+
+	i++;
+	i->Gmass=0.75;
+	i->px=0.25;
+	i->py=0.25;
+	i->vx=-0.25;
+	i->vy=0.25;
+	i->ax=0.0;
+	i->ay=0.0;
+
+	i++;
+	i->Gmass=0.5;
+	i->px=0.5;
+	i->py=0.5;
+	i->vx=-0.5;
+	i->vy=0.5;
+	i->ax=0.0;
+	i->ay=0.0;
+
+	i++;
+	i->Gmass=0.25;
+	i->px=0.75;
+	i->py=0.75;
+	i->vx=-0.75;
+	i->vy=0.75	;
+	i->ax=0.0;
+	i->ay=0.0;
+
+}
+
 
 void randInit(struct Body *body, int start, int end){
 	srand (time(NULL));
@@ -128,6 +167,14 @@ void bodiesPrint(struct Body *bodies, int start, int end){
 	printf("}, \n");
 }
 
+void bodiesPrintCSV(struct Body *body, int start, int end){
+	struct Body *i;
+	for (i = body + start; i != body + end; i++){
+		printf("%f, %f, %f, %f, %f\n", i->Gmass, i->px, i->py, i->vx, i->vy);
+	}
+
+}
+
 void nextPhase(struct Body *body, int num, int steps, double *clock_record){
 	wctime(clock_record++);
 	int t;
@@ -139,11 +186,13 @@ void nextPhase(struct Body *body, int num, int steps, double *clock_record){
 		for (i = body; i != body + num; i++){
 			ax = i->ax;
 			ay = i->ay;
+
+			#pragma omp parallel for private(j) reduction(+ : ax, ay)
 			for (j = i + 1; j != body + num; j++){
 				dx = i->px - j->px;
 				dy = i->py - j->py;
-				quickNormalize(&dx, &dy);
-//				reNormalize(&dx, &dy);
+//				quickNormalize(&dx, &dy);
+				reNormalize(&dx, &dy);
 
 				ax -= j->Gmass * dx;
 				ay -= j->Gmass * dy;
@@ -167,17 +216,20 @@ void nextPhase(struct Body *body, int num, int steps, double *clock_record){
 
 
 int main(int argc, char *argv[]){
-	if (argc < 2){
-		printf("%s\n", "Usage: Please input the number of bodies");
+	if (argc < 3){
+		printf("%s\n", "Please input the number of bodies<N>, steps<K>: ");
+		printf("\t(Hardcoded G=%f, dt=%f!)\n", G, dt);
+		printf("Usage: \n\t %s %s %s\n", argv[0], "<N>", "<K>");
 		return 1;
 	}
 	int N = atoi(argv[1]);
+	int K = atoi(argv[2]);
 	double te;
 
 	struct Body *body = (struct Body *) malloc (sizeof(struct Body ) * N);
 	double t[K+1];
-//	randTest (body, 0, N);
-	randInit (body, 0, N);
+	randTest (body, 0, N);
+	initCheck (body);
 
 	struct BodyState bs0, bsK;
 
@@ -195,10 +247,10 @@ int main(int argc, char *argv[]){
 //	printf("3.0, %d, %d, %f, %f\n", K, N, te, (K)*(N * N)/te * (1e-6));
 
 //	bodiesPrint(body, 0, N);
-	statePrint(&bs0);
-	statePrint(&bsK);
+//	statePrint(&bs0);
+//	statePrint(&bsK);
 
-//	bodiesPrint(body, 0, N);
+	bodiesPrintCSV(body, 0, N);
 	free(body);
 	return 0;
 }
